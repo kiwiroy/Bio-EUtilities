@@ -1,28 +1,49 @@
 language: perl
 perl:
-  - "5.18"
+  - "5.28"
   - "5.16"
-  - "5.14"
-  - "5.12"
   - "5.10"
 
-env: PERL_CPANM_OPT="--notest --force --skip-satisfied"
+dist: trusty
+
+#env: PERL_CPANM_OPT="--notest --force --skip-satisfied"
+
+env:
+  - PERL_USE_UNSAFE_INC=1
+
+addons:
+  apt:
+    packages:
+    - libdb-dev
+    - libgd-dev
 
 install:
-    - "sudo apt-get install libdb-dev 2>&1 | tail -n 4"
-    - "cpanm DB_File XML::Simple LWP::UserAgent | tail -n 1"
-    - "cpanm Bio::Root::Root | tail -n 1"
-    #Test coverage from Coveralls
-    - cpanm --quiet --notest Devel::Cover::Report::Coveralls
+  - cpanm -q DB_File XML::Simple LWP::UserAgent LWP::Protocol::https Test::Exception
+  - |
+    if [[ "$TRAVIS_PERL_VERSION" == "5.10" ]]; then
+      echo "See https://rt.cpan.org/Public/Bug/Display.html?id=1939"
+      echo "See https://rt.cpan.org/Public/Bug/Display.html?id=100959"
+      cpanm --installdeps -q XML::Parser::PerlSAX
+      PERL5OPT=-MFileHandle cpanm XML::Parser::PerlSAX
+    fi
+  # https://rt.cpan.org/Public/Bug/Display.html?id=115098
+  # https://rt.cpan.org/Public/Bug/Display.html?id=29423
+  # https://stackoverflow.com/a/51696052/7456461
+  - cpanm -q https://cpan.metacpan.org/authors/id/M/MI/MIROD/XML-DOM-XPath-0.13.tar.gz || cat ~/.cpanm/build.log
+  - cpanm -q Bio::Root::Root || cat ~/.cpanm/build.log
+  #Test coverage from Coveralls
+  - cpanm -n -q Devel::Cover::Report::Coveralls
 
 script:
-    - PERL5OPT=-MDevel::Cover=+ignore,prove,-coverage,all prove -lr t
-    - cover -report coveralls
+  - prove -lr t
+
+after_success:
+  - cover -test -report coveralls
 
 notifications:
   email: false
 
 # whitelist branches
-branches:
-  only:
-    - master
+#branches:
+#  only:
+#    - master
